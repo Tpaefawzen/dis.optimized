@@ -1,12 +1,12 @@
 .POSIX:
 
 TARGET = dis-esolang
-OBJ = dis.o main.o
+OBJ = dis.o main.o dis_errno.o
 
 all: $(TARGET)
 
 $(TARGET): $(OBJ)
-	$(CC) $(CFLAGS) -o $@ $?
+	$(CC) $(CFLAGS) -o $@ $(OBJ)
 
 test: $(TARGET) $(TEST_FILES)
 
