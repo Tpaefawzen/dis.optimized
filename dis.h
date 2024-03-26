@@ -24,7 +24,7 @@ struct dis_t {
 	dis_addr_t mem_capacity;
 
 	dis_addr_t source_len;
-	dis_addr_t end_nonzero;
+	dis_addr_t end_nonnop;
 
 	struct {
 		dis_int_t a, c, d;

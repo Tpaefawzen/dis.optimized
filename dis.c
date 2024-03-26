@@ -22,7 +22,7 @@ int dis_init(struct dis_t* machine) {
 	if ( errno ) return errno;
 
 	machine -> source_len = 0;
-	machine -> end_nonzero = 0;
+	machine -> end_nonnop = 0;
 
 	machine -> reg.a = 0;
 	machine -> reg.c = 0;
@@ -44,6 +44,7 @@ void increment_lineno_or_colno_(const int);
 
 enum dis_syntax_error parse_non_comment_(FILE*, struct dis_t*);
 enum dis_syntax_error parse_comment_(FILE*, struct dis_t*);
+void extend_nonnop_at_compilation_(struct dis_t*);
 
 enum dis_syntax_error dis_compile(
 		const char*const filename, struct dis_t *machine) {
@@ -62,7 +63,7 @@ enum dis_syntax_error dis_compile(
 
 	switch ( result = parse_non_comment_(f, machine) ) {
 	case DIS_SYNTAX_OK:
-		machine->end_nonzero = machine->source_len;
+		machine->end_nonnop = machine->source_len;
 	}
 
 	fclose(f);
@@ -96,7 +97,20 @@ enum dis_syntax_error parse_non_comment_(FILE *f, struct dis_t *machine) {
 		}
 
 		machine->mem[machine->source_len++] = (dis_int_t)c;
+		extend_nonnop_at_compilation_(machine);
 		return parse_non_comment_(f, machine);
+	}
+}
+
+void extend_nonnop_at_compilation_(struct dis_t *machine) {
+	switch ( machine->mem[machine->source_len-1] ) {
+	case '_':
+		return;
+
+	default:
+	case '!': case '*': case '>': case '^':
+	case '{': case '|': case '}':
+		machine->end_nonnop = machine->source_len-1;
 	}
 }
 
@@ -151,7 +165,7 @@ enum dis_halt_status dis_exec_forever(struct dis_t* machine) {
 dis_int_t rotate(const dis_base_t, const dis_digits_t, const dis_int_t);
 dis_int_t subtract_without_borrow(const dis_base_t, const dis_digits_t,
 		const dis_int_t, const dis_int_t);
-void increment_c_and_d_to_instruction(struct dis_t*);
+void increment_c_and_d_to_cmd_(struct dis_t*);
 
 typedef enum dis_halt_status cmd_f(struct dis_t*);
 cmd_f halt_, jmp_or_load_, rot_or_opr_, out_, in_;
@@ -178,7 +192,7 @@ enum dis_halt_status dis_step(struct dis_t* machine) {
 			machine->reg.d,
 			machine->mem[machine->reg.c],
 			machine->mem[machine->reg.d]);
-	increment_c_and_d_to_instruction(machine);
+	increment_c_and_d_to_cmd_(machine);
 
 	return machine->status;
 }
@@ -232,11 +246,24 @@ const dis_int_t incr_(const struct dis_t *machine, const dis_int_t x) {
 	return x + 1;
 }
 
-void increment_c_and_d_to_instruction(struct dis_t* machine) {
-	machine->reg.d = incr_(machine, machine->reg.d);
-	machine->reg.c = incr_(machine, machine->reg.c);
+void skip_to_mem0_(struct dis_t*);
 
-	/** TODO: optimization */
+void increment_c_and_d_to_cmd_(struct dis_t* machine) {
+	if ( machine->reg.c < machine->end_nonnop ) {
+		machine->reg.d = incr_(machine, machine->reg.d);
+		machine->reg.c = incr_(machine, machine->reg.c);
+		return;
+	}
+
+	skip_to_mem0_(machine);
+}
+
+void skip_to_mem0_(struct dis_t *machine) {
+	uintptr_t new_d_;
+	new_d_ = machine->reg.d + machine->reg.c + DIS_INT_T_END(machine);
+	new_d_ %= DIS_INT_T_END(machine);
+	machine->reg.d = new_d_;
+	machine->reg.c = 0;
 }
 
 cmd_f *fetch_cmd_(const dis_int_t x) {
@@ -276,7 +303,7 @@ enum dis_halt_status rot_or_opr_(struct dis_t *machine) {
 				machine->digits,
 				machine->reg.a,
 				machine->mem[machine->reg.d]));
-	if ( x ) machine->end_nonzero = machine->reg.d+1;
+	if ( x ) machine->end_nonnop = machine->reg.d+1;
 	return machine->status;
 }
 
