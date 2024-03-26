@@ -104,7 +104,7 @@ trap_1:
 
 	default:
 		const char *const errmsg = get_dis_syntax_error_msg(syntax_errno);
-		fprintf(stderr, "%s: %s\n", filename, errmsg);
+		fprintf(stderr, "%s:%zu:%zu %s\n", filename, dis_compilation_lineno, dis_compilation_colno, errmsg);
 
 		goto trap_1;
 	}

@@ -38,9 +38,17 @@ void dis_free(struct dis_t *machine) {
 	machine->mem_capacity = 0;
 }
 
+size_t dis_compilation_lineno;
+size_t dis_compilation_colno;
+void increment_lineno_or_colno_(int);
+
 enum dis_syntax_error dis_compile(const char*const filename, struct dis_t *machine) {
+	dis_compilation_lineno = 1;
+	dis_compilation_colno = 0;
+
 	int c;
 	enum dis_syntax_error result;
+	size_t comment_line, comment_col;
 
 	dis_init(machine);
 	if ( errno ) return DIS_SYNTAX_MAX;
@@ -57,7 +65,8 @@ finally:
 	}
 
 not_in_comment:
-	switch ( c = fgetc(f) ) {
+	increment_lineno_or_colno_(c = fgetc(f));
+	switch ( c ) {
 	case EOF:
 		result = DIS_SYNTAX_OK;
 		goto finally;
@@ -70,6 +79,8 @@ not_in_comment:
 		goto finally;
 
 	case '(':
+		comment_line = dis_compilation_lineno;
+		comment_col = dis_compilation_colno;
 		goto is_in_comment;
 
 	case '!': case '*': case '>': case '^':
@@ -84,9 +95,12 @@ not_in_comment:
 	}
 
 is_in_comment:
-	switch ( c = fgetc(f) ) {
+	increment_lineno_or_colno_(c = fgetc(f));
+	switch ( c ) {
 	case EOF:
 		result = DIS_SYNTAX_UNCLOSED_COMMENT;
+		dis_compilation_lineno = comment_line;
+		dis_compilation_colno = comment_col;
 		goto finally;
 
 	case ')':
@@ -94,5 +108,20 @@ is_in_comment:
 
 	default:
 		goto is_in_comment;
+	}
+}
+
+void increment_lineno_or_colno_(int c) {
+	switch ( c ) {
+	case EOF:
+		return;
+
+	case '\n':
+		dis_compilation_colno = 1;
+		dis_compilation_lineno++;
+		return;
+
+	default:
+		dis_compilation_colno++;
 	}
 }

@@ -35,6 +35,8 @@ struct dis_t {
 
 int dis_init(struct dis_t*); /* returns errno */
 void dis_free(struct dis_t*);
+
+extern size_t dis_compilation_lineno, dis_compilation_colno;
 enum dis_syntax_error dis_compile(const char*const, struct dis_t*);
 
 enum dis_halt_status dis_exec(long);
