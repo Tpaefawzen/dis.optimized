@@ -39,7 +39,13 @@ void dis_free(struct dis_t*);
 extern size_t dis_compilation_lineno, dis_compilation_colno;
 enum dis_syntax_error dis_compile(const char*const, struct dis_t*);
 
-enum dis_halt_status dis_exec(long);
-enum dis_halt_status dis_step(void);
+extern _Bool dis_flag_verbose;
+#define DPRINTF(...) if ( dis_flag_verbose ) do { \
+	fprintf(stderr, __VA_ARGS__); \
+} while ( 0 )
+
+enum dis_halt_status dis_exec(struct dis_t*, size_t);
+enum dis_halt_status dis_exec_forever(struct dis_t*);
+enum dis_halt_status dis_step(struct dis_t*);
 
 #endif /* _DIS_H */

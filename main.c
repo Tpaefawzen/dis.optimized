@@ -13,44 +13,13 @@
 #include "dis.h"
 #include "dis_errno.h"
 
-_Bool is_regular_file(const char[]);
+_Bool dis_flag_verbose = 0;
+
 void usage(const char[]);
 
 void usage(const char myname[]) {
-	fprintf(stderr, "Usage: %s FILE\n", myname);
+	fprintf(stderr, "Usage: %s [-v] FILE\n", myname);
 	exit(EXIT_FAILURE);
-}
-
-_Bool is_regular_file(const char path[]) {
-	struct stat statbuf;
-	_Bool result = 0;
-
-	switch ( lstat(path, &statbuf) ) {
-	case -1: default:
-		if ( errno ) perror(path);
-		errno = 0;
-		break;
-
-	case 0:
-		result = S_ISREG(statbuf.st_mode);
-		return result;
-	}
-
-lstat_failed_wtf:
-	switch ( errno ) {
-	case EACCES:
-	case EIO:
-	case ELOOP:
-	case ENAMETOOLONG:
-	case ENOENT:
-	case ENOTDIR:
-	case EOVERFLOW:
-		perror(path);
-		return 0;
-	default:
-		perror(path);
-		return 0;
-	}
 }
 
 int main(int argc, char *argv[]) {
@@ -60,8 +29,15 @@ int main(int argc, char *argv[]) {
 	/**
 	 * Usage.
 	 */
-	for ( int c; ( c = getopt(argc, argv, "")) != -1; ) {
-		usage(myname);
+	for ( int c; ( c = getopt(argc, argv, "v")) != -1; ) {
+		switch ( c ) {
+		case 'v':
+			dis_flag_verbose = 1;
+			break;
+
+		default:
+			usage(myname);
+		}
 	}
 
 	/**
@@ -72,22 +48,13 @@ int main(int argc, char *argv[]) {
 	}
 	const char* const filename = argv[optind];
 
-#if 0
-	/**
-	 * Regular file?
-	 */
-	if ( ! is_regular_file(filename) ) {
-		fprintf(stderr, "%s: Rejected due to not regular file\n", filename);
-		return result;
-	}
-#endif
-
 	/**
 	 * Open a file.
 	 * Parse a Dis program.
 	 */
 	struct dis_t machine;
-	enum dis_syntax_error syntax_errno = dis_compile(filename, &machine);
+	const enum dis_syntax_error syntax_errno =
+		dis_compile(filename, &machine);
 
 	if ( 0 ) {
 trap_1:
@@ -103,8 +70,10 @@ trap_1:
 		break;
 
 	default:
-		const char *const errmsg = get_dis_syntax_error_msg(syntax_errno);
-		fprintf(stderr, "%s:%zu:%zu %s\n", filename, dis_compilation_lineno, dis_compilation_colno, errmsg);
+		fprintf(stderr, "%s:%zu:%zu %s\n",
+				filename,
+				dis_compilation_lineno, dis_compilation_colno,
+				get_dis_syntax_error_msg(syntax_errno));
 
 		goto trap_1;
 	}
@@ -112,6 +81,7 @@ trap_1:
 	/**
 	 * Now we can execute the compiled program.
 	 */
+	(void)dis_exec_forever(&machine);
 
 	result = EXIT_SUCCESS;
 	goto trap_1;

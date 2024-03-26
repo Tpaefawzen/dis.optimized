@@ -17,7 +17,7 @@ enum dis_halt_status {
 	DIS_HALT_STATUS_MAX,
 };
 
-const char* const get_dis_syntax_error_msg(enum dis_syntax_error);
-const char* const get_dis_halt_status_msg(enum dis_halt_status);
+const char *get_dis_syntax_error_msg(enum dis_syntax_error);
+const char *get_dis_halt_status_msg(enum dis_halt_status);
 
 #endif /* _DIS_ERRNO_H */
