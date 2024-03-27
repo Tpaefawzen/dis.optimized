@@ -13,8 +13,6 @@
 #include "dis.h"
 #include "dis_errno.h"
 
-_Bool dis_flag_verbose = 0;
-
 void usage(const char[]);
 
 void usage(const char myname[]) {
@@ -26,13 +24,15 @@ int main(int argc, char *argv[]) {
 	const char* const myname = argv[0];
 	int result = EXIT_FAILURE;
 
+	_Bool flag_v = 0;
+
 	/**
 	 * Usage.
 	 */
 	for ( int c; ( c = getopt(argc, argv, "v")) != -1; ) {
 		switch ( c ) {
 		case 'v':
-			dis_flag_verbose = 1;
+			flag_v = 1;
 			break;
 
 		default:
@@ -76,6 +76,10 @@ trap_1:
 				get_dis_syntax_error_msg(syntax_errno));
 
 		goto trap_1;
+	}
+
+	if ( flag_v ) {
+		machine.flags |= DIS_FLAG_VERBOSE;
 	}
 
 	/**

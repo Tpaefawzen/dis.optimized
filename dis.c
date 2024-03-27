@@ -29,6 +29,8 @@ int dis_init(struct dis_t* machine) {
 	machine -> reg.d = 0;
 	machine -> status = DIS_RUNNING;
 
+	machine -> flags = 0;
+
 	return errno;
 }
 
@@ -186,7 +188,7 @@ enum dis_halt_status dis_step(struct dis_t* machine) {
 		}
 	}
 
-	DPRINTF("a %zu c %zu d %zu mem[c] %zu mem[d] %zu\n",
+	DPRINTF(machine, "a %zu c %zu d %zu mem[c] %zu mem[d] %zu\n",
 			machine->reg.a,
 			machine->reg.c,
 			machine->reg.d,
@@ -237,8 +239,8 @@ dis_int_t subtract_without_borrow(const dis_base_t base,
 	}
 }
 
-#define DIS_INT_T_MAX(machine) (machine->mem_capacity)
-#define DIS_INT_T_END(machine) (machine->mem_capacity+1)
+#define DIS_INT_T_MAX(machine) ((machine)->mem_capacity)
+#define DIS_INT_T_END(machine) ((machine)->mem_capacity+1)
 
 const dis_int_t incr_(const struct dis_t *machine, const dis_int_t x) {
 	if ( x == DIS_INT_T_MAX(machine) )
@@ -278,21 +280,25 @@ cmd_f *fetch_cmd_(const dis_int_t x) {
 }
 
 enum dis_halt_status halt_(struct dis_t *machine) {
-	DPRINTF("Reached to '!'\n");
+	DPRINTF(machine, "Reached to '!'\n");
 	return machine->status = DIS_HALT_COMMAND;
 }
 
+
 enum dis_halt_status jmp_or_load_(struct dis_t *machine) {
-	DPRINTF("Reached to either '^' or '*'\n");
+	DPRINTF(machine, "Reached to either '^' or '*'\n");
 	dis_int_t x = machine->mem[machine->reg.c];
 	*( x == '^' ? &machine->reg.c : &machine->reg.d ) =
 		machine->mem[machine->reg.d];
 	return machine->status;
 }
 
+void extend_nonnop_when_mem_modified_(struct dis_t*);
+
 enum dis_halt_status rot_or_opr_(struct dis_t *machine) {
-	DPRINTF("Reached to either '>' or '|'\n");
-	dis_int_t x = machine->mem[machine->reg.c];
+	DPRINTF(machine, "Reached to either '>' or '|'\n");
+	dis_int_t x;
+	x = machine->mem[machine->reg.c];
 	x = machine->reg.a = machine->mem[machine->reg.d] = (
 			x =='>' ?
 			rotate(machine->base,
@@ -303,12 +309,18 @@ enum dis_halt_status rot_or_opr_(struct dis_t *machine) {
 				machine->digits,
 				machine->reg.a,
 				machine->mem[machine->reg.d]));
-	if ( x ) machine->end_nonnop = machine->reg.d+1;
+	extend_nonnop_when_mem_modified_(machine);
 	return machine->status;
 }
 
+void extend_nonnop_when_mem_modified_(struct dis_t *machine) {
+	if ( fetch_cmd_(machine->reg.a) ) {
+		machine->end_nonnop = machine->reg.d+1;
+	}
+}
+
 enum dis_halt_status out_(struct dis_t *machine) {
-	DPRINTF("Reached to {\n");
+	DPRINTF(machine, "Reached to {\n");
 	if ( machine->reg.a == DIS_INT_T_MAX(machine) ) {
 		return machine->status = DIS_HALT_OUTPUT_EOF;
 	}
@@ -317,7 +329,7 @@ enum dis_halt_status out_(struct dis_t *machine) {
 }
 
 enum dis_halt_status in_(struct dis_t *machine) {
-	DPRINTF("Reached to }\n");
+	DPRINTF(machine, "Reached to }\n");
 	int x = fgetc(stdin);
 	switch ( x ) {
 	case EOF:

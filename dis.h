@@ -4,6 +4,7 @@
 #include <stdint.h>
 
 #include "dis_errno.h"
+#include "dis_fmt.h"
 
 typedef uint16_t dis_int_t;
 typedef uint16_t dis_addr_t;
@@ -14,6 +15,10 @@ typedef uint8_t dis_digits_t;
 enum default_dis_data_type {
 	DIS_BASE = 3,
 	DIS_DIGITS = 10,
+};
+
+enum dis_flag_t {
+	DIS_FLAG_VERBOSE = 1 << 0,
 };
 
 struct dis_t {
@@ -31,6 +36,8 @@ struct dis_t {
 	} reg;
 
 	enum dis_halt_status status;
+
+	enum dis_flag_t flags;
 };
 
 int dis_init(struct dis_t*); /* returns errno */
@@ -39,8 +46,7 @@ void dis_free(struct dis_t*);
 extern size_t dis_compilation_lineno, dis_compilation_colno;
 enum dis_syntax_error dis_compile(const char*const, struct dis_t*);
 
-extern _Bool dis_flag_verbose;
-#define DPRINTF(...) if ( dis_flag_verbose ) do { \
+#define DPRINTF(machine, ...) if ( (machine)->flags | DIS_FLAG_VERBOSE ) do { \
 	fprintf(stderr, __VA_ARGS__); \
 } while ( 0 )
 
