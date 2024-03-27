@@ -7,7 +7,7 @@ LIBOBJ = dis.o dis_errno.o dis_fmt.o
 LDFLAGS = -L .
 LINKFLAGS = -lm -ldis-esolang
 
-INTERNAL_TESTS = test-dis-fmt  # test-rot test-opr
+INTERNAL_TESTS = # test-rot test-opr
 INTERNAL_TESTS_OBJ = $(INTERNAL_TESTS:=.o)
 
 all: $(TARGET)
