@@ -112,7 +112,7 @@ void extend_nonnop_at_compilation_(struct dis_t *machine) {
 	default:
 	case '!': case '*': case '>': case '^':
 	case '{': case '|': case '}':
-		machine->end_nonnop = machine->source_len-1;
+		machine->end_nonnop = machine->source_len;
 	}
 }
 
