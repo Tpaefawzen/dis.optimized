@@ -1,6 +1,7 @@
 #ifndef _DIS_H
 #define _DIS_H
 
+#include <stddef.h>
 #include <stdint.h>
 
 typedef uint16_t dis_int_t;

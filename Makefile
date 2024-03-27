@@ -1,26 +1,27 @@
 .POSIX:
 
 TARGET = dis-esolang
+OBJ = main.o
 LIB = libdis-esolang.a
-LIBOBJ = dis.o dis_errno.o dis_fmt.o
+LIBOBJ = dis.o dis_errno.o dis_math.o
 
 LDFLAGS = -L .
 LINKFLAGS = -lm -ldis-esolang
 
-INTERNAL_TESTS = # test-rot test-opr
+INTERNAL_TESTS = test-rot test-opr
 INTERNAL_TESTS_OBJ = $(INTERNAL_TESTS:=.o)
 
 all: $(TARGET)
 
-$(TARGET): main.o $(LIB)
-	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ main.o $(LINKFLAGS)
+$(TARGET): $(OBJ) $(LIB)
+	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $(OBJ) $(LINKFLAGS)
 
 $(LIB): $(LIB)($(LIBOBJ))
 
 test: $(TARGET) $(TEST_FILES)
 
 clean:
-	rm -f $(TARGET) $(LIBOBJ) $(LIB)
+	rm -f $(OBJ) $(LIBOBJ) $(LIB)
 
 internal-tests: $(INTERNAL_TESTS) 
 
