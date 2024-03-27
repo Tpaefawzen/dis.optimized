@@ -45,7 +45,7 @@ void dis_free(struct dis_t*);
 extern size_t dis_compilation_lineno, dis_compilation_colno;
 enum dis_syntax_error dis_compile(const char*const, struct dis_t*);
 
-#define DPRINTF(machine, ...) if ( (machine)->flags | DIS_FLAG_VERBOSE ) do { \
+#define DPRINTF(machine, ...) if ( (machine)->flags & DIS_FLAG_VERBOSE ) do { \
 	fprintf(stderr, __VA_ARGS__); \
 } while ( 0 )
 
