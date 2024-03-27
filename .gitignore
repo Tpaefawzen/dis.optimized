@@ -1,3 +1,6 @@
 *.o
 *.a
 dis-esolang
+test-*
+!test-*.h
+!test-*.c

@@ -178,6 +178,14 @@ enum dis_halt_status dis_step(struct dis_t* machine) {
 	if ( dis_is_infinite_loop(machine) ) return machine->status;
 
 	cmd_f *cmd = fetch_cmd_(machine->mem[machine->reg.c]);
+
+	DPRINTF(machine, "a %5d c %5d d %5d mem[c] %5d mem[d] %5d\n",
+			machine->reg.a,
+			machine->reg.c,
+			machine->reg.d,
+			machine->mem[machine->reg.c],
+			machine->mem[machine->reg.d]);
+
 	if ( cmd ) {
 		cmd(machine);
 		switch ( machine->status ) {
@@ -189,7 +197,7 @@ enum dis_halt_status dis_step(struct dis_t* machine) {
 		}
 	}
 
-	DPRINTF(machine, "a %zu c %zu d %zu mem[c] %zu mem[d] %zu\n",
+	DPRINTF(machine, "a %5d c %5d d %5d mem[c] %5d mem[d] %5d\n",
 			machine->reg.a,
 			machine->reg.c,
 			machine->reg.d,
