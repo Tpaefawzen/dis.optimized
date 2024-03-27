@@ -17,7 +17,7 @@ int dis_init(struct dis_t* machine) {
 	machine -> digits = DIS_DIGITS;
 
 	machine -> mem_capacity =
-		(size_t)pow(machine->base, machine->digits);
+		DIS_INT_END(machine->base, machine->digits);
 	if ( errno ) return errno;
 
 	machine -> mem =
@@ -66,10 +66,7 @@ enum dis_syntax_error dis_compile(
 		return DIS_SYNTAX_IO;
 	}
 
-	switch ( result = parse_non_comment_(f, machine) ) {
-	case DIS_SYNTAX_OK:
-		machine->end_nonnop = machine->source_len;
-	}
+	result = parse_non_comment_(f, machine);
 
 	fclose(f);
 	return result;
