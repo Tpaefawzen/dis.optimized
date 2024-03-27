@@ -3,14 +3,12 @@
 
 #include <stdint.h>
 
-#include "dis_errno.h"
-#include "dis_fmt.h"
-
 typedef uint16_t dis_int_t;
 typedef uint16_t dis_addr_t;
 typedef uint8_t dis_base_t;
 typedef uint8_t dis_digits_t;
 
+#include "dis_errno.h"
 
 enum default_dis_data_type {
 	DIS_BASE = 3,

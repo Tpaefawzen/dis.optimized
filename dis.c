@@ -9,6 +9,8 @@
 #include "dis.h"
 #include "dis_errno.h"
 
+inline _Bool dis_is_infinite_loop(const struct dis_t*);
+
 int dis_init(struct dis_t* machine) {
 	machine -> base = DIS_BASE;
 	machine -> digits = DIS_DIGITS;
@@ -175,6 +177,7 @@ cmd_f *fetch_cmd_(const dis_int_t);
 
 enum dis_halt_status dis_step(struct dis_t* machine) {
 	if ( machine->status != DIS_RUNNING ) return machine->status;
+	if ( dis_is_infinite_loop(machine) ) return machine->status;
 
 	cmd_f *cmd = fetch_cmd_(machine->mem[machine->reg.c]);
 	if ( cmd ) {
@@ -340,4 +343,9 @@ enum dis_halt_status in_(struct dis_t *machine) {
 		machine->reg.a = x;
 	}
 	return machine->status;
+}
+
+inline _Bool dis_is_infinite_loop(const struct dis_t *machine) {
+	return machine->status == DIS_RUNNING &&
+		machine->end_nonnop == 0;
 }
