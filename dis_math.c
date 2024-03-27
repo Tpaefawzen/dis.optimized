@@ -22,7 +22,7 @@ dis_int_t rotate(const dis_base_t base, const dis_digits_t digits,
 	const dis_digits_t left_shift_for = digits - 1;
 
 	return nonbottom_shift_right
-		+ DIS_INT_END(base, digits) * bottom_digit;
+		+ DIS_INT_END(base, digits-1) * bottom_digit;
 }
 
 /* FIXME why? */
