@@ -87,6 +87,7 @@ trap_1:
 	 */
 	(void)dis_exec_forever(&machine);
 
-	result = EXIT_SUCCESS;
+	result = machine.caught_signal_number;
+	if ( result ) result += 128;
 	goto trap_1;
 }

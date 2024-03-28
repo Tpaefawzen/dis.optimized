@@ -1,6 +1,7 @@
 #ifndef _DIS_H
 #define _DIS_H
 
+#include <signal.h>
 #include <stddef.h>
 #include <stdint.h>
 
@@ -37,6 +38,8 @@ struct dis_t {
 	enum dis_halt_status status;
 
 	enum dis_flag_t flags;
+
+	volatile sig_atomic_t caught_signal_number;
 };
 
 int dis_init(struct dis_t*); /* returns errno */

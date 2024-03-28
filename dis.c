@@ -4,20 +4,35 @@
 #include <ctype.h>
 #include <errno.h>
 #include <math.h>
+#include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include "dis.h"
 #include "dis_errno.h"
 #include "dis_math.h"
 
-inline _Bool dis_is_infinite_loop(const struct dis_t*);
+volatile sig_atomic_t has_caught_signal_ = 0;
+
+static void handler(int signum) {
+	has_caught_signal_ = signum;
+}
+
+/* Not even macro. */
+inline _Bool dis_is_infinite_loop(const struct dis_t *machine) {
+	return machine->status == DIS_RUNNING &&
+		machine->end_nonnop == 0;
+}
 
 inline dis_int_t DIS_T_INT_MAX(const struct dis_t *const machine) {
 	return machine->mem_capacity;
 }
 
+/* Methods. */
 int dis_init(struct dis_t* machine) {
+	machine -> mem = NULL;
+
 	machine -> base = DIS_BASE;
 	machine -> digits = DIS_DIGITS;
 
@@ -28,6 +43,21 @@ int dis_init(struct dis_t* machine) {
 	machine -> mem =
 		(dis_int_t*)calloc(DIS_T_INT_MAX(machine), sizeof(dis_int_t));
 	if ( errno ) return errno;
+
+	int sigs_[] = { SIGHUP, SIGINT, SIGQUIT, SIGPIPE, SIGALRM, SIGTERM, 0 };
+
+	for ( int *i = sigs_;
+			*i;
+			i++ ) {
+		if ( signal(*i, handler) == SIG_ERR ) {
+			fprintf(stderr, "dis_init(): "
+					"Failed to signal(%s, handler): "
+					"%s\n",
+					strsignal(*i),
+					strerror(errno));
+			errno = 0;
+		}
+	}
 
 	machine -> source_len = 0;
 	machine -> end_nonnop = 0;
@@ -43,7 +73,7 @@ int dis_init(struct dis_t* machine) {
 }
 
 void dis_free(struct dis_t *machine) {
-	if ( DIS_T_INT_MAX(machine) )
+	if ( DIS_T_INT_MAX(machine) && machine->mem )
 		free(machine->mem);
 	machine->mem = NULL;
 	machine->mem_capacity = 0;
@@ -62,8 +92,6 @@ enum dis_syntax_error dis_compile(
 	dis_compilation_lineno = 1;
 	dis_compilation_colno = 0;
 
-	enum dis_syntax_error result;
-
 	dis_init(machine);
 	if ( errno ) return DIS_SYNTAX_MEMORY;
 
@@ -72,9 +100,9 @@ enum dis_syntax_error dis_compile(
 		return DIS_SYNTAX_IO;
 	}
 
-	switch ( result = parse_non_comment_(f, machine) ) {
-	case DIS_SYNTAX_OK:
-		/* TODO: flag to accept or reject I/O error when syntax is ok */
+	enum dis_syntax_error result = parse_non_comment_(f, machine);
+	if ( result == DIS_SYNTAX_OK ) {
+		/* maybe TODO: flag to accept or reject I/O error when syntax is ok */
 		if ( ferror(f) )
 			result = DIS_SYNTAX_IO;
 	}
@@ -86,6 +114,11 @@ enum dis_syntax_error dis_compile(
 size_t comment_line, comment_col;
 
 enum dis_syntax_error parse_non_comment_(FILE *f, struct dis_t *machine) {
+	if ( has_caught_signal_ ) {
+		machine->caught_signal_number = has_caught_signal_;
+		return DIS_SYNTAX_MAX;
+	}
+
 	int c;
 	increment_lineno_or_colno_(c = fgetc(f));
 	switch ( c ) {
@@ -128,6 +161,11 @@ void extend_nonnop_at_compilation_(struct dis_t *machine) {
 }
 
 enum dis_syntax_error parse_comment_(FILE *f, struct dis_t *machine) {
+	if ( has_caught_signal_ ) {
+		machine->caught_signal_number = has_caught_signal_;
+		return DIS_SYNTAX_MAX;
+	}
+
 	int c;
 	increment_lineno_or_colno_(c = fgetc(f));
 	switch ( c ) {
@@ -159,17 +197,26 @@ void increment_lineno_or_colno_(const int c) {
 	}
 }
 
+/* Methods to do something with compiled program. */
 enum dis_halt_status dis_exec(struct dis_t* machine, size_t steps) {
 	for ( ; ; ) {
+		if ( has_caught_signal_ ) {
+			machine->caught_signal_number = has_caught_signal_;
+			return machine->status;
+		}
 		if ( ! steps ) return machine->status;
 		if ( machine->status != DIS_RUNNING ) return machine->status;
 		dis_step(machine);
 		steps--;
-	}	
+	}
 }
 
 enum dis_halt_status dis_exec_forever(struct dis_t* machine) {
 	for ( ; ; ) {
+		if ( has_caught_signal_ ) {
+			machine->caught_signal_number = has_caught_signal_;
+			return machine->status;
+		}
 		if ( machine->status != DIS_RUNNING ) return machine->status;
 		dis_step(machine);
 	}
@@ -180,15 +227,31 @@ cmd_f halt_, jmp_or_load_, rot_or_opr_, out_, in_;
 cmd_f *fetch_cmd_(const dis_int_t);
 
 enum dis_halt_status dis_step(struct dis_t* machine) {
-	if ( machine->status != DIS_RUNNING ) return machine->status;
+	if ( has_caught_signal_ ) {
+		machine->caught_signal_number = has_caught_signal_;
+		return machine->status;
+	}
 
+	/* Step 1. Reject halt machine. */
+	if ( machine->status != DIS_RUNNING ) {
+		return machine->status;
+	}
+
+	/* Step 2. Increment c and d until mem[c] is a non-nop if any. */
 try_to_fetch_command:
+	if ( has_caught_signal_ ) {
+		machine->caught_signal_number = has_caught_signal_;
+		return machine->status;
+	}
+
 	if ( dis_is_infinite_loop(machine) )
 		return machine->status;
 
 	if ( machine->reg.c >= machine->end_nonnop ) {
 		/* Since command can be found at <end_nonnop, why not just
 		 * increment c and d until c is 0? */
+		DPRINTF(machine, "c %u >= end_nonnop %u\n",
+				machine->reg.c, machine->end_nonnop);
 		machine->reg.d = (uintptr_t)(
 				machine->reg.d + machine->reg.c
 				+ DIS_T_INT_MAX(machine) )
@@ -202,6 +265,10 @@ try_to_fetch_command:
 	for ( ;
 			machine->reg.c < machine->end_nonnop;
 	    ) {
+		if ( has_caught_signal_ ) {
+			machine->caught_signal_number = has_caught_signal_;
+			return machine->status;
+		}
 		if ( ( cmd = fetch_cmd_(machine->mem[machine->reg.c]) ) )
 			goto found_cmd;
 		machine->reg.c = ( machine->reg.c + 1 ) % DIS_T_INT_MAX(machine);
@@ -211,6 +278,7 @@ try_to_fetch_command:
 	/* Command not found, so it can be found at [0, c). */
 	assert( machine->reg.c >= machine->end_nonnop );
 	machine->end_nonnop = machine->reg.c;
+	DPRINTF(machine, "end_nonnop: %u\n", machine->end_nonnop);
 	goto try_to_fetch_command;
 
 found_cmd:
@@ -221,6 +289,8 @@ found_cmd:
 			machine->mem[machine->reg.c],
 			machine->mem[machine->reg.d]);
 
+	/* Step 3. Execute a fetched non-nop.
+	 * OBTW '|' and '>' can extend or shrink end_nonnop. */
 	cmd(machine);
 	switch ( machine->status ) {
 	case DIS_RUNNING:
@@ -236,6 +306,8 @@ found_cmd:
 			machine->reg.d,
 			machine->mem[machine->reg.c],
 			machine->mem[machine->reg.d]);
+
+	/* Step 4. Increment c and d for next step. */
 	machine->reg.c = ( machine->reg.c + 1 ) % DIS_T_INT_MAX(machine);
 	machine->reg.d = ( machine->reg.d + 1 ) % DIS_T_INT_MAX(machine);
 
@@ -243,12 +315,6 @@ found_cmd:
 }
 
 #define DIS_INT_T_MAX(machine) ((machine)->mem_capacity)
-
-const dis_int_t incr_(const struct dis_t *machine, const dis_int_t x) {
-	if ( x == DIS_INT_T_MAX(machine) )
-		return 0;
-	return x + 1;
-}
 
 cmd_f *fetch_cmd_(const dis_int_t x) {
 	switch ( x ) {
@@ -260,6 +326,8 @@ cmd_f *fetch_cmd_(const dis_int_t x) {
 	}
 	return (cmd_f*)NULL;
 }
+
+/* non-nop commands. */
 
 enum dis_halt_status halt_(struct dis_t *machine) {
 	DPRINTF(machine, "Reached to '!'\n");
@@ -274,8 +342,6 @@ enum dis_halt_status jmp_or_load_(struct dis_t *machine) {
 		machine->mem[machine->reg.d];
 	return machine->status;
 }
-
-void extend_nonnop_when_mem_modified_(struct dis_t*);
 
 enum dis_halt_status rot_or_opr_(struct dis_t *machine) {
 	/**
@@ -341,9 +407,4 @@ enum dis_halt_status in_(struct dis_t *machine) {
 		machine->reg.a = (dis_int_t)x;
 	}
 	return machine->status;
-}
-
-inline _Bool dis_is_infinite_loop(const struct dis_t *machine) {
-	return machine->status == DIS_RUNNING &&
-		machine->end_nonnop == 0;
 }
