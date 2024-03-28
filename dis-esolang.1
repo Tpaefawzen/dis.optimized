@@ -1,0 +1,53 @@
+.\" Copyright 2024 Tpaefawzen
+.\" 
+.\" Permission to use, copy, modify, and/or distribute this software for any
+.\" purpose with or without fee is hereby granted, provided that the above
+.\" copyright notice and this permission notice appear in all copies.
+.\" 
+.\" THE SOFTWARE IS PROVIDED “AS IS” AND THE AUTHOR DISCLAIMS ALL WARRANTIES WITH
+.\" REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND
+.\" FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY SPECIAL, DIRECT,
+.\" INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM
+.\" LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR
+.\" OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
+.\" PERFORMANCE OF THIS SOFTWARE.
+.Dd March 28, 2024
+.Dt DIS-ESOLANG 1
+.Os
+.Sh NAME
+.Nm dis-esolang
+.Nd Optimized interpreter for esoteric programming language Dis
+.Sh SYNOPSIS
+.Nm
+Op Fl v
+Ar FILE
+.Sh DESCRIPTION
+The
+.Nm
+reads a program source for esoteric programming language Dis, then
+interpret and run using standard input and standard output.
+.Pp
+The
+.Fl v
+flag enables verbose mode which outputs debugging information to
+standard error.
+.Pp
+I have implemented signal handling for
+.Dv SIGHUP ,
+.Dv SIGINT ,
+.Dv SIGQUIT ,
+.Dv SIGPIPE ,
+.Dv SIGALRM ,
+and
+.Dv SIGTERM ;
+when
+.Nm
+catches one of those signals it cleans up dynamically allocated
+memory.
+.Sh EXIT STATUS
+.Ex -std
+.Sh REPOSITORY
+.Lk https://github.com/Tpaefawzen/dis.optimized \
+ "Available on Tpaefawzen/dis.optimized on GitHub"
+.Sh SEE ALSO
+.Lk https://esolangs.org/wiki/Dis "Dis \(hy Esolang"
