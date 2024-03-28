@@ -1,5 +1,9 @@
+#define _POSIX_C_SOURCE 200811L
+
 #include <math.h>
 #include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
 
 #include "dis.h"
 #include "dis_math.h"
@@ -22,10 +26,9 @@ dis_int_t rotate(const dis_base_t base, const dis_digits_t digits,
 	const dis_digits_t left_shift_for = digits - 1;
 
 	return nonbottom_shift_right
-		+ DIS_INT_END(base, digits-1) * bottom_digit;
+		+ DIS_INT_END(base, left_shift_for) * bottom_digit;
 }
 
-/* FIXME why? */
 dis_int_t subtract_without_borrow(const dis_base_t base,
 		const dis_digits_t digits,
 		const dis_int_t x, const dis_int_t y) {
@@ -37,8 +40,13 @@ dis_int_t subtract_without_borrow(const dis_base_t base,
 		/**
 		 * Recursiving from bottom digit.
 		 */
-		return (x - y + base) % base
+		/* To avoid overflow on (base + x - y) I had to
+		 * do ldiv().rem */
+		ldiv_t xdiv = ldiv(x, base);
+		ldiv_t ydiv = ldiv(y, base);
+		return (base + xdiv.rem - ydiv.rem) % base
 			+ base * subtract_without_borrow(
-					base, digits-1, x/base, y/base);
+					base, digits-1,
+					xdiv.quot, ydiv.quot);
 	}
 }
