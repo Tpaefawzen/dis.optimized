@@ -13,6 +13,10 @@
 
 inline _Bool dis_is_infinite_loop(const struct dis_t*);
 
+inline dis_int_t DIS_T_INT_MAX(const struct dis_t *const machine) {
+	return machine->mem_capacity;
+}
+
 int dis_init(struct dis_t* machine) {
 	machine -> base = DIS_BASE;
 	machine -> digits = DIS_DIGITS;
@@ -22,7 +26,7 @@ int dis_init(struct dis_t* machine) {
 	if ( errno ) return errno;
 
 	machine -> mem =
-		(dis_int_t*)calloc(machine->mem_capacity, sizeof(dis_int_t));
+		(dis_int_t*)calloc(DIS_T_INT_MAX(machine), sizeof(dis_int_t));
 	if ( errno ) return errno;
 
 	machine -> source_len = 0;
@@ -39,8 +43,9 @@ int dis_init(struct dis_t* machine) {
 }
 
 void dis_free(struct dis_t *machine) {
-	if ( machine->mem_capacity )
+	if ( DIS_T_INT_MAX(machine) )
 		free(machine->mem);
+	machine->mem = NULL;
 	machine->mem_capacity = 0;
 }
 
@@ -60,14 +65,19 @@ enum dis_syntax_error dis_compile(
 	enum dis_syntax_error result;
 
 	dis_init(machine);
-	if ( errno ) return DIS_SYNTAX_MAX;
+	if ( errno ) return DIS_SYNTAX_MEMORY;
 
 	FILE *f = fopen(filename, "r");
 	if ( !f || errno ) {
 		return DIS_SYNTAX_IO;
 	}
 
-	result = parse_non_comment_(f, machine);
+	switch ( result = parse_non_comment_(f, machine) ) {
+	case DIS_SYNTAX_OK:
+		/* TODO: flag to accept or reject I/O error when syntax is ok */
+		if ( ferror(f) )
+			result = DIS_SYNTAX_IO;
+	}
 
 	fclose(f);
 	return result;
@@ -95,7 +105,7 @@ enum dis_syntax_error parse_non_comment_(FILE *f, struct dis_t *machine) {
 
 	case '!': case '*': case '>': case '^':
 	case '_': case '{': case '|': case '}':
-		if ( machine->source_len >= machine->mem_capacity ) {
+		if ( machine->source_len >= DIS_T_INT_MAX(machine) ) {
 			return DIS_SYNTAX_TOO_LONG;
 		}
 
@@ -181,8 +191,8 @@ try_to_fetch_command:
 		 * increment c and d until c is 0? */
 		machine->reg.d = (uintptr_t)(
 				machine->reg.d + machine->reg.c
-				+ machine->mem_capacity )
-			% machine->mem_capacity;
+				+ DIS_T_INT_MAX(machine) )
+			% DIS_T_INT_MAX(machine);
 		machine->reg.c = 0;
 		goto try_to_fetch_command;
 	}
@@ -194,8 +204,8 @@ try_to_fetch_command:
 	    ) {
 		if ( ( cmd = fetch_cmd_(machine->mem[machine->reg.c]) ) )
 			goto found_cmd;
-		machine->reg.c = ( machine->reg.c + 1 ) % machine->mem_capacity;
-		machine->reg.d = ( machine->reg.d + 1 ) % machine->mem_capacity;
+		machine->reg.c = ( machine->reg.c + 1 ) % DIS_T_INT_MAX(machine);
+		machine->reg.d = ( machine->reg.d + 1 ) % DIS_T_INT_MAX(machine);
 	}
 
 	/* Command not found, so it can be found at [0, c). */
@@ -226,14 +236,13 @@ found_cmd:
 			machine->reg.d,
 			machine->mem[machine->reg.c],
 			machine->mem[machine->reg.d]);
-	machine->reg.c = ( machine->reg.c + 1 ) % machine->mem_capacity;
-	machine->reg.d = ( machine->reg.d + 1 ) % machine->mem_capacity;
+	machine->reg.c = ( machine->reg.c + 1 ) % DIS_T_INT_MAX(machine);
+	machine->reg.d = ( machine->reg.d + 1 ) % DIS_T_INT_MAX(machine);
 
 	return machine->status;
 }
 
 #define DIS_INT_T_MAX(machine) ((machine)->mem_capacity)
-#define DIS_INT_T_END(machine) ((machine)->mem_capacity+1)
 
 const dis_int_t incr_(const struct dis_t *machine, const dis_int_t x) {
 	if ( x == DIS_INT_T_MAX(machine) )

@@ -6,6 +6,7 @@ const char *const dis_syntax_error_message[DIS_SYNTAX_MAX] = {
 	"Comment unclosed",
 	"Program too long",
 	"I/O error",
+	"Memory error",
 };
 
 const char *const dis_halt_status_message[DIS_HALT_STATUS_MAX] = {
