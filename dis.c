@@ -1,5 +1,6 @@
-#define _POSIX_C_SOURCE 200801L
+#define _POSIX_C_SOURCE 200811L
 
+#include <assert.h>
 #include <ctype.h>
 #include <errno.h>
 #include <math.h>
@@ -164,18 +165,45 @@ enum dis_halt_status dis_exec_forever(struct dis_t* machine) {
 	}
 }
 
-void increment_c_and_d_to_cmd_(struct dis_t*);
-
 typedef enum dis_halt_status cmd_f(struct dis_t*);
 cmd_f halt_, jmp_or_load_, rot_or_opr_, out_, in_;
 cmd_f *fetch_cmd_(const dis_int_t);
 
 enum dis_halt_status dis_step(struct dis_t* machine) {
 	if ( machine->status != DIS_RUNNING ) return machine->status;
-	if ( dis_is_infinite_loop(machine) ) return machine->status;
 
-	cmd_f *cmd = fetch_cmd_(machine->mem[machine->reg.c]);
+try_to_fetch_command:
+	if ( dis_is_infinite_loop(machine) )
+		return machine->status;
 
+	if ( machine->reg.c >= machine->end_nonnop ) {
+		/* Since command can be found at <end_nonnop, why not just
+		 * increment c and d until c is 0? */
+		machine->reg.d = (uintptr_t)(
+				machine->reg.d + machine->reg.c
+				+ machine->mem_capacity )
+			% machine->mem_capacity;
+		machine->reg.c = 0;
+		goto try_to_fetch_command;
+	}
+
+	/* Are there any command in [c, end_nonnop)? */
+	cmd_f *cmd = NULL;
+	for ( ;
+			machine->reg.c < machine->end_nonnop;
+	    ) {
+		if ( ( cmd = fetch_cmd_(machine->mem[machine->reg.c]) ) )
+			goto found_cmd;
+		machine->reg.c = ( machine->reg.c + 1 ) % machine->mem_capacity;
+		machine->reg.d = ( machine->reg.d + 1 ) % machine->mem_capacity;
+	}
+
+	/* Command not found, so it can be found at [0, c). */
+	assert( machine->reg.c >= machine->end_nonnop );
+	machine->end_nonnop = machine->reg.c;
+	goto try_to_fetch_command;
+
+found_cmd:
 	DPRINTF(machine, "a %5d c %5d d %5d mem[c] %5d mem[d] %5d\n",
 			machine->reg.a,
 			machine->reg.c,
@@ -183,15 +211,13 @@ enum dis_halt_status dis_step(struct dis_t* machine) {
 			machine->mem[machine->reg.c],
 			machine->mem[machine->reg.d]);
 
-	if ( cmd ) {
-		cmd(machine);
-		switch ( machine->status ) {
-		case DIS_RUNNING:
-			break;
+	cmd(machine);
+	switch ( machine->status ) {
+	case DIS_RUNNING:
+		break;
 
-		default:
-			return machine->status;
-		}
+	default:
+		return machine->status;
 	}
 
 	DPRINTF(machine, "a %5d c %5d d %5d mem[c] %5d mem[d] %5d\n",
@@ -200,7 +226,8 @@ enum dis_halt_status dis_step(struct dis_t* machine) {
 			machine->reg.d,
 			machine->mem[machine->reg.c],
 			machine->mem[machine->reg.d]);
-	increment_c_and_d_to_cmd_(machine);
+	machine->reg.c = ( machine->reg.c + 1 ) % machine->mem_capacity;
+	machine->reg.d = ( machine->reg.d + 1 ) % machine->mem_capacity;
 
 	return machine->status;
 }
@@ -212,26 +239,6 @@ const dis_int_t incr_(const struct dis_t *machine, const dis_int_t x) {
 	if ( x == DIS_INT_T_MAX(machine) )
 		return 0;
 	return x + 1;
-}
-
-void skip_to_mem0_(struct dis_t*);
-
-void increment_c_and_d_to_cmd_(struct dis_t* machine) {
-	if ( machine->reg.c < machine->end_nonnop ) {
-		machine->reg.d = incr_(machine, machine->reg.d);
-		machine->reg.c = incr_(machine, machine->reg.c);
-		return;
-	}
-
-	skip_to_mem0_(machine);
-}
-
-void skip_to_mem0_(struct dis_t *machine) {
-	uintptr_t new_d_;
-	new_d_ = machine->reg.d + machine->reg.c + DIS_INT_T_END(machine);
-	new_d_ %= DIS_INT_T_END(machine);
-	machine->reg.d = new_d_;
-	machine->reg.c = 0;
 }
 
 cmd_f *fetch_cmd_(const dis_int_t x) {
@@ -262,6 +269,10 @@ enum dis_halt_status jmp_or_load_(struct dis_t *machine) {
 void extend_nonnop_when_mem_modified_(struct dis_t*);
 
 enum dis_halt_status rot_or_opr_(struct dis_t *machine) {
+	/**
+	 * This command shall modify mem[d], which may result in
+	 * either command or not.
+	 */
 	DPRINTF(machine, "Reached to either '>' or '|'\n");
 	dis_int_t x;
 	x = machine->mem[machine->reg.c];
@@ -275,14 +286,29 @@ enum dis_halt_status rot_or_opr_(struct dis_t *machine) {
 				machine->digits,
 				machine->reg.a,
 				machine->mem[machine->reg.d]));
-	extend_nonnop_when_mem_modified_(machine);
-	return machine->status;
-}
 
-void extend_nonnop_when_mem_modified_(struct dis_t *machine) {
-	if ( fetch_cmd_(machine->reg.a) ) {
-		machine->end_nonnop = machine->reg.d+1;
+	/* Extend or shrink end_nonnop */
+	if ( machine->reg.d < machine->end_nonnop )
+		goto finally;
+	if ( machine->reg.d == machine->end_nonnop ) {
+		if ( fetch_cmd_(x) )
+			;
+		else
+			machine->end_nonnop = machine->reg.d;
+		goto finally;
 	}
+	if ( machine->reg.d > machine->end_nonnop ) {
+		if ( fetch_cmd_(x) )
+			machine->end_nonnop = machine->reg.d + 1;
+		else
+			;
+		goto finally;
+	}
+	/* NOTREACHED */
+	assert( ! "machine->reg.d not <end_nonnop, =0, nor >end_nonnop" );
+
+finally:
+	return machine->status;
 }
 
 enum dis_halt_status out_(struct dis_t *machine) {
@@ -303,7 +329,7 @@ enum dis_halt_status in_(struct dis_t *machine) {
 		break;
 
 	default:
-		machine->reg.a = x;
+		machine->reg.a = (dis_int_t)x;
 	}
 	return machine->status;
 }
