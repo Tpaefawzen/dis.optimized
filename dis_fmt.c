@@ -39,7 +39,7 @@ dis_int_t dis_trit2dec(const char* const trit_str) {
 #if 0
 
 char *dis_dec2trit(char *result, dis_int_t x, const size_t n_result, _Bool as_fixed) {
-	char local_result[DIS_DIGITS+1] = { 0 };
+	static char local_result[DIS_DIGITS+1] = { 0 };
 	const char to_digit[DIS_BASE] = { '0', '1', '2' };
 
 	dis_digits_t i;
