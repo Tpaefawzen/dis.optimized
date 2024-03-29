@@ -30,19 +30,21 @@ dis_int_t rotate(const dis_base_t base, const dis_digits_t digits,
 }
 
 dis_int_t subtract_without_borrow(const dis_base_t base,
-		const dis_digits_t digits,
-		const dis_int_t x, const dis_int_t y) {
-	if ( digits == 0 ) return 0;
-
-	/**
-	 * Recursiving from bottom digit.
-	 */
-	/* To avoid overflow on (base + x - y) I had to
-	 * do ldiv().rem */
-	ldiv_t xdiv = ldiv(x, base);
-	ldiv_t ydiv = ldiv(y, base);
-	return (base + xdiv.rem - ydiv.rem) % base
-		+ base * subtract_without_borrow(
-				base, digits-1,
-				xdiv.quot, ydiv.quot);
+		dis_digits_t digits,
+		dis_int_t x, dis_int_t y) {
+	dis_int_t result = 0, weight = 1;
+	for ( ; digits--; weight*=base ) {
+		/**
+		 * Recursiving from bottom digit.
+		 */
+		/* To avoid overflow on (base + x - y) I had to
+		 * do ldiv().rem */
+		ldiv_t xdiv = ldiv(x, base);
+		ldiv_t ydiv = ldiv(y, base);
+		result += weight
+			* ((base + xdiv.rem - ydiv.rem) % base);
+		x = xdiv.quot, y = ydiv.quot;
+	}
+	
+	return result;
 }
