@@ -116,7 +116,7 @@ enum dis_syntax_error dis_compile(
 size_t comment_line, comment_col;
 
 enum dis_syntax_error parse_non_comment_(FILE *f, struct dis_t *machine) {
-	if ( machine -> caught_signal_number = has_caught_signal_ )
+	if ( ( machine -> caught_signal_number = has_caught_signal_ ) )
 		return DIS_SYNTAX_MAX;
 
 	int c;
@@ -163,7 +163,7 @@ inline void extend_nonnop_at_compilation_(struct dis_t *machine) {
 }
 
 enum dis_syntax_error parse_comment_(FILE *f, struct dis_t *machine) {
-	if ( machine -> caught_signal_number = has_caught_signal_ )
+	if ( ( machine -> caught_signal_number = has_caught_signal_ ) )
 		return DIS_SYNTAX_MAX;
 
 	int c;
@@ -200,7 +200,7 @@ void increment_lineno_or_colno_(const int c) {
 /* Methods to do something with compiled program. */
 enum dis_halt_status dis_exec(struct dis_t* machine, size_t steps) {
 	for ( ; ; ) {
-		if ( machine->caught_signal_number = has_caught_signal_ ||
+		if ( ( machine->caught_signal_number = has_caught_signal_ ) ||
 				! steps ||
 				machine->status ) return machine->status;
 		dis_step(machine);
@@ -210,7 +210,7 @@ enum dis_halt_status dis_exec(struct dis_t* machine, size_t steps) {
 
 enum dis_halt_status dis_exec_forever(struct dis_t* machine) {
 	for ( ; ; ) {
-		if ( machine->caught_signal_number = has_caught_signal_ ||
+		if ( ( machine->caught_signal_number = has_caught_signal_ ) ||
 				machine->status ) return machine->status;
 		dis_step(machine);
 	}
@@ -221,7 +221,7 @@ cmd_f halt_, jmp_or_load_, rot_or_opr_, out_, in_;
 cmd_f *fetch_cmd_(const dis_int_t);
 
 enum dis_halt_status dis_step(struct dis_t* machine) {
-	if ( machine->caught_signal_number = has_caught_signal_ )
+	if ( ( machine->caught_signal_number = has_caught_signal_ ) )
 		return machine->status;
 
 	/* Step 1. Reject halt machine. */
@@ -231,7 +231,7 @@ enum dis_halt_status dis_step(struct dis_t* machine) {
 
 	/* Step 2. Increment c and d until mem[c] is a non-nop if any. */
 try_to_fetch_command:
-	if ( machine->caught_signal_number = has_caught_signal_ )
+	if ( ( machine->caught_signal_number = has_caught_signal_ ) )
 		return machine->status;
 
 	if ( dis_is_infinite_loop(machine) )
@@ -255,7 +255,7 @@ try_to_fetch_command:
 	for ( ;
 			machine->reg.c < machine->end_nonnop;
 	    ) {
-		if ( machine->caught_signal_number = has_caught_signal_ )
+		if ( ( machine->caught_signal_number = has_caught_signal_ ) )
 			return machine->status;
 		if ( ( cmd = fetch_cmd_(machine->mem[machine->reg.c]) ) )
 			goto found_cmd;
