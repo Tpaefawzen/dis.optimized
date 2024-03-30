@@ -1,5 +1,7 @@
 .POSIX:
 
+CFLAGS = -Wall -Werror -Wpedantic -O3
+
 TARGET = dis-esolang
 OBJ = main.o
 LIB = libdis-esolang.a
