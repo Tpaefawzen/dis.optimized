@@ -8,6 +8,23 @@
 #include "dis.h"
 #include "dis_math.h"
 
+dis_addr_t DIS_INT_MAX(const dis_base_t base, const dis_digits_t digits) {
+	return (dis_int_t)pow((double)base, (double)digits);
+}
+
+dis_addr_t DIS_INT_END(const dis_base_t base, const dis_digits_t digits) {
+	return DIS_INT_MAX(base, digits)-1;
+}
+
+dis_addr_t dis_addr_add(
+		const dis_base_t base, const dis_digits_t digits,
+		const dis_addr_t x, const dis_addr_t y) {
+	const dis_addr_t endval = DIS_INT_END(base, digits);
+	return (dis_addr_t)(
+			((ptrdiff_t)x + (ptrdiff_t)y - endval)
+			% endval);
+}
+
 dis_int_t rotate(const dis_base_t base, const dis_digits_t digits,
 		const dis_int_t x) {
 	/**
