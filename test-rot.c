@@ -5,7 +5,7 @@
 #include "dis_math.h"
 
 int main(void) {
-	const dis_int_t testcases[] = {
+	dis_int_t testcases[] = {
 		1,
 		2,
 		3,
