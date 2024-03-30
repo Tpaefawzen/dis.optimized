@@ -16,7 +16,7 @@
 void usage(const char[]);
 
 void usage(const char myname[]) {
-	fprintf(stderr, "Usage: %s [-Ev] FILE\n", myname);
+	fprintf(stderr, "Usage: %s [-Ev] [-O LEVEL] FILE\n", myname);
 	exit(EXIT_FAILURE);
 }
 
@@ -26,12 +26,16 @@ int main(int argc, char *argv[]) {
 
 	_Bool flag_E = 0;
 	_Bool flag_v = 0;
+	uint8_t flag_Optlevel = 3;
 
 	/**
 	 * Usage.
 	 */
-	for ( int c; ( c = getopt(argc, argv, "Ev")) != -1; ) {
+	for ( int c; ( c = getopt(argc, argv, "EvO:")) != -1; ) {
 		switch ( c ) {
+			unsigned long maybe_optlevel_;
+			char *endptr_;
+
 		case 'E':
 			flag_E = 1;
 			break;
@@ -40,7 +44,26 @@ int main(int argc, char *argv[]) {
 			flag_v = 1;
 			break;
 
+		case 'O':
+			maybe_optlevel_ = strtoul(optarg, &endptr_, 10);
+			if ( errno ) {
+				perror("-O");
+				errno = 0;
+			}
+			if ( maybe_optlevel_ > 100 ) {
+				fprintf(stderr, "-O %lu: optimization level too large\n",
+						maybe_optlevel_);
+				maybe_optlevel_ = flag_Optlevel;
+			}
+			if ( endptr_ == optarg ) {
+				fprintf(stderr, "-O %s: not a number\n",
+						optarg);
+				break;
+			}
+			flag_Optlevel = maybe_optlevel_;
+
 		default:
+		case '?':
 			usage(myname);
 		}
 	}
