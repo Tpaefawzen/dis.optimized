@@ -14,8 +14,8 @@ inline dis_int_t DIS_INT_MAX(const dis_base_t base, const dis_digits_t digits) {
 }
 
 dis_int_t rotate(const dis_base_t, const dis_digits_t, const dis_int_t);
-dis_int_t subtract_without_borrow(const dis_base_t, const dis_digits_t,
-		const dis_int_t, const dis_int_t);
+dis_int_t subtract_without_borrow(const dis_base_t, dis_digits_t,
+		dis_int_t, dis_int_t);
 
 inline dis_addr_t dis_addr_add(
 		const dis_base_t base, const dis_digits_t digits,
