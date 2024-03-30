@@ -55,7 +55,6 @@ int dis_init(struct dis_t* machine) {
 					"%s\n",
 					strsignal(*i),
 					strerror(errno));
-			errno = 0;
 		}
 	}
 
@@ -86,7 +85,7 @@ _Bool accept_any_char_for_source = 0;
 
 enum dis_syntax_error parse_non_comment_(FILE*, struct dis_t*);
 enum dis_syntax_error parse_comment_(FILE*, struct dis_t*);
-void extend_nonnop_at_compilation_(struct dis_t*);
+inline void extend_nonnop_at_compilation_(struct dis_t*);
 
 enum dis_syntax_error dis_compile(
 		const char*const filename, struct dis_t *machine,
@@ -117,10 +116,8 @@ enum dis_syntax_error dis_compile(
 size_t comment_line, comment_col;
 
 enum dis_syntax_error parse_non_comment_(FILE *f, struct dis_t *machine) {
-	if ( has_caught_signal_ ) {
-		machine->caught_signal_number = has_caught_signal_;
+	if ( machine -> caught_signal_number = has_caught_signal_ )
 		return DIS_SYNTAX_MAX;
-	}
 
 	int c;
 	increment_lineno_or_colno_(c = fgetc(f));
@@ -153,7 +150,7 @@ enum dis_syntax_error parse_non_comment_(FILE *f, struct dis_t *machine) {
 	}
 }
 
-void extend_nonnop_at_compilation_(struct dis_t *machine) {
+inline void extend_nonnop_at_compilation_(struct dis_t *machine) {
 	switch ( machine->mem[machine->source_len-1] ) {
 	case '_':
 		return;
@@ -166,10 +163,8 @@ void extend_nonnop_at_compilation_(struct dis_t *machine) {
 }
 
 enum dis_syntax_error parse_comment_(FILE *f, struct dis_t *machine) {
-	if ( has_caught_signal_ ) {
-		machine->caught_signal_number = has_caught_signal_;
+	if ( machine -> caught_signal_number = has_caught_signal_ )
 		return DIS_SYNTAX_MAX;
-	}
 
 	int c;
 	increment_lineno_or_colno_(c = fgetc(f));
@@ -205,12 +200,9 @@ void increment_lineno_or_colno_(const int c) {
 /* Methods to do something with compiled program. */
 enum dis_halt_status dis_exec(struct dis_t* machine, size_t steps) {
 	for ( ; ; ) {
-		if ( has_caught_signal_ ) {
-			machine->caught_signal_number = has_caught_signal_;
-			return machine->status;
-		}
-		if ( ! steps ) return machine->status;
-		if ( machine->status != DIS_RUNNING ) return machine->status;
+		if ( machine->caught_signal_number = has_caught_signal_ ||
+				! steps ||
+				machine->status ) return machine->status;
 		dis_step(machine);
 		steps--;
 	}
@@ -218,11 +210,8 @@ enum dis_halt_status dis_exec(struct dis_t* machine, size_t steps) {
 
 enum dis_halt_status dis_exec_forever(struct dis_t* machine) {
 	for ( ; ; ) {
-		if ( has_caught_signal_ ) {
-			machine->caught_signal_number = has_caught_signal_;
-			return machine->status;
-		}
-		if ( machine->status != DIS_RUNNING ) return machine->status;
+		if ( machine->caught_signal_number = has_caught_signal_ ||
+				machine->status ) return machine->status;
 		dis_step(machine);
 	}
 }
@@ -232,22 +221,18 @@ cmd_f halt_, jmp_or_load_, rot_or_opr_, out_, in_;
 cmd_f *fetch_cmd_(const dis_int_t);
 
 enum dis_halt_status dis_step(struct dis_t* machine) {
-	if ( has_caught_signal_ ) {
-		machine->caught_signal_number = has_caught_signal_;
+	if ( machine->caught_signal_number = has_caught_signal_ )
 		return machine->status;
-	}
 
 	/* Step 1. Reject halt machine. */
-	if ( machine->status != DIS_RUNNING ) {
+	if ( machine->status ) {
 		return machine->status;
 	}
 
 	/* Step 2. Increment c and d until mem[c] is a non-nop if any. */
 try_to_fetch_command:
-	if ( has_caught_signal_ ) {
-		machine->caught_signal_number = has_caught_signal_;
+	if ( machine->caught_signal_number = has_caught_signal_ )
 		return machine->status;
-	}
 
 	if ( dis_is_infinite_loop(machine) )
 		return machine->status;
@@ -270,10 +255,8 @@ try_to_fetch_command:
 	for ( ;
 			machine->reg.c < machine->end_nonnop;
 	    ) {
-		if ( has_caught_signal_ ) {
-			machine->caught_signal_number = has_caught_signal_;
+		if ( machine->caught_signal_number = has_caught_signal_ )
 			return machine->status;
-		}
 		if ( ( cmd = fetch_cmd_(machine->mem[machine->reg.c]) ) )
 			goto found_cmd;
 		machine->reg.c = ( machine->reg.c + 1 ) % DIS_T_INT_MAX(machine);
@@ -318,8 +301,6 @@ found_cmd:
 
 	return machine->status;
 }
-
-#define DIS_INT_T_MAX(machine) ((machine)->mem_capacity)
 
 cmd_f *fetch_cmd_(const dis_int_t x) {
 	switch ( x ) {
@@ -393,7 +374,7 @@ finally:
 
 enum dis_halt_status out_(struct dis_t *machine) {
 	DPRINTF(machine, "Reached to {\n");
-	if ( machine->reg.a == DIS_INT_T_MAX(machine) ) {
+	if ( machine->reg.a == DIS_T_INT_MAX(machine) ) {
 		return machine->status = DIS_HALT_OUTPUT_EOF;
 	}
 	fputc(machine->reg.a, stdout);
@@ -405,7 +386,7 @@ enum dis_halt_status in_(struct dis_t *machine) {
 	int x = fgetc(stdin);
 	switch ( x ) {
 	case EOF:
-		machine->reg.a = DIS_INT_T_MAX(machine);
+		machine->reg.a = DIS_T_INT_MAX(machine);
 		break;
 
 	default:
