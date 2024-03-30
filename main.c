@@ -16,7 +16,7 @@
 void usage(const char[]);
 
 void usage(const char myname[]) {
-	fprintf(stderr, "Usage: %s [-v] FILE\n", myname);
+	fprintf(stderr, "Usage: %s [-Ev] FILE\n", myname);
 	exit(EXIT_FAILURE);
 }
 
@@ -24,13 +24,18 @@ int main(int argc, char *argv[]) {
 	const char* const myname = argv[0];
 	int result = EXIT_FAILURE;
 
+	_Bool flag_E = 0;
 	_Bool flag_v = 0;
 
 	/**
 	 * Usage.
 	 */
-	for ( int c; ( c = getopt(argc, argv, "v")) != -1; ) {
+	for ( int c; ( c = getopt(argc, argv, "Ev")) != -1; ) {
 		switch ( c ) {
+		case 'E':
+			flag_E = 1;
+			break;
+
 		case 'v':
 			flag_v = 1;
 			break;
@@ -54,7 +59,7 @@ int main(int argc, char *argv[]) {
 	 */
 	struct dis_t machine;
 	const enum dis_syntax_error syntax_errno =
-		dis_compile(filename, &machine);
+		dis_compile(filename, &machine, flag_E);
 
 	if ( 0 ) {
 trap_1:

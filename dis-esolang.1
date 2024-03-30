@@ -19,13 +19,17 @@
 .Nd Optimized interpreter for esoteric programming language Dis
 .Sh SYNOPSIS
 .Nm
-Op Fl v
-Ar FILE
+.Op Fl Ev
+.Ar FILE
 .Sh DESCRIPTION
 The
 .Nm
 reads a program source for esoteric programming language Dis, then
 interpret and run using standard input and standard output.
+.Pp
+The
+.Fl E
+flag extends syntax rule for Dis language to allow any characters to load.
 .Pp
 The
 .Fl v

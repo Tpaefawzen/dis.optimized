@@ -82,15 +82,18 @@ void dis_free(struct dis_t *machine) {
 size_t dis_compilation_lineno;
 size_t dis_compilation_colno;
 void increment_lineno_or_colno_(const int);
+_Bool accept_any_char_for_source = 0;
 
 enum dis_syntax_error parse_non_comment_(FILE*, struct dis_t*);
 enum dis_syntax_error parse_comment_(FILE*, struct dis_t*);
 void extend_nonnop_at_compilation_(struct dis_t*);
 
 enum dis_syntax_error dis_compile(
-		const char*const filename, struct dis_t *machine) {
+		const char*const filename, struct dis_t *machine,
+		_Bool accept_any_char) {
 	dis_compilation_lineno = 1;
 	dis_compilation_colno = 0;
+	accept_any_char_for_source = accept_any_char;
 
 	dis_init(machine);
 	if ( errno ) return DIS_SYNTAX_MEMORY;
@@ -128,13 +131,15 @@ enum dis_syntax_error parse_non_comment_(FILE *f, struct dis_t *machine) {
 	case ' ': case '\t': case '\n':
 		return parse_non_comment_(f, machine);
 
-	default:
-		return DIS_SYNTAX_NON_COMMAND;
-
 	case '(':
 		comment_line = dis_compilation_lineno;
 		comment_col = dis_compilation_colno;
 		return parse_comment_(f, machine);
+
+	default:
+		if ( ! accept_any_char_for_source )
+			return DIS_SYNTAX_NON_COMMAND;
+		/* FALLTHROUGH */
 
 	case '!': case '*': case '>': case '^':
 	case '_': case '{': case '|': case '}':
