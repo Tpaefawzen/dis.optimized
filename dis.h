@@ -4,6 +4,7 @@
 #include <signal.h>
 #include <stddef.h>
 #include <stdint.h>
+#include <stdio.h>
 
 typedef uint16_t dis_int_t;
 typedef uint16_t dis_addr_t;
@@ -40,6 +41,9 @@ struct dis_t {
 	enum dis_flag_t flags;
 
 	volatile sig_atomic_t caught_signal_number;
+
+	FILE *fin;
+	FILE *fout;
 };
 
 int dis_init(struct dis_t*); /* returns errno */

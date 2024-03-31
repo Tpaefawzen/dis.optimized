@@ -5,6 +5,7 @@
 #include <errno.h>
 #include <math.h>
 #include <signal.h>
+#include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -201,18 +202,15 @@ void increment_lineno_or_colno_(const int c) {
 enum dis_halt_status dis_exec(struct dis_t* machine, size_t steps) {
 	for ( ; ; ) {
 		if ( ( machine->caught_signal_number = has_caught_signal_ ) ||
-				! steps ||
-				machine->status ) return machine->status;
-		dis_step(machine);
-		steps--;
+				! steps-- ||
+				dis_step(machine) ) return machine->status;
 	}
 }
 
 enum dis_halt_status dis_exec_forever(struct dis_t* machine) {
 	for ( ; ; ) {
 		if ( ( machine->caught_signal_number = has_caught_signal_ ) ||
-				machine->status ) return machine->status;
-		dis_step(machine);
+				dis_step(machine) ) return machine->status;
 	}
 }
 
@@ -279,8 +277,7 @@ found_cmd:
 
 	/* Step 3. Execute a fetched non-nop.
 	 * OBTW '|' and '>' can extend or shrink end_nonnop. */
-	cmd(machine);
-	switch ( machine->status ) {
+	switch ( cmd(machine) ) {
 	case DIS_RUNNING:
 		break;
 
@@ -349,26 +346,10 @@ enum dis_halt_status rot_or_opr_(struct dis_t *machine) {
 				machine->mem[machine->reg.d]));
 
 	/* Extend or shrink end_nonnop */
-	if ( machine->reg.d < machine->end_nonnop )
-		goto finally;
-	if ( machine->reg.d == machine->end_nonnop ) {
-		if ( fetch_cmd_(x) )
-			;
-		else
-			machine->end_nonnop = machine->reg.d;
-		goto finally;
-	}
-	if ( machine->reg.d > machine->end_nonnop ) {
-		if ( fetch_cmd_(x) )
-			machine->end_nonnop = machine->reg.d + 1;
-		else
-			;
-		goto finally;
-	}
-	/* NOTREACHED */
-	assert( ! "machine->reg.d not <end_nonnop, =0, nor >end_nonnop" );
+	if ( machine->reg.d >= machine->end_nonnop
+			&& fetch_cmd_(x) )
+		machine->end_nonnop = machine->reg.d + 1;
 
-finally:
 	return machine->status;
 }
 
@@ -377,13 +358,13 @@ enum dis_halt_status out_(struct dis_t *machine) {
 	if ( machine->reg.a == DIS_T_INT_MAX(machine) ) {
 		return machine->status = DIS_HALT_OUTPUT_EOF;
 	}
-	fputc(machine->reg.a, stdout);
+	fputc(machine->reg.a, machine->fout);
 	return machine->status;
 }
 
 enum dis_halt_status in_(struct dis_t *machine) {
 	DPRINTF(machine, "Reached to }\n");
-	int x = fgetc(stdin);
+	int x = fgetc(machine->fin);
 	switch ( x ) {
 	case EOF:
 		machine->reg.a = DIS_T_INT_MAX(machine);
