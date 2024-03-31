@@ -11,7 +11,7 @@
 .\" LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR
 .\" OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
 .\" PERFORMANCE OF THIS SOFTWARE.
-.Dd March 28, 2024
+.Dd March 31, 2024
 .Dt DIS-ESOLANG 1
 .Os
 .Sh NAME
@@ -19,7 +19,8 @@
 .Nd Optimized interpreter for esoteric programming language Dis
 .Sh SYNOPSIS
 .Nm
-.Op Fl Ev
+.Op Fl \&Ev
+.Op Fl k Ar STEPS
 .Ar FILE
 .Sh DESCRIPTION
 The
@@ -27,14 +28,17 @@ The
 reads a program source for esoteric programming language Dis, then
 interpret and run using standard input and standard output.
 .Pp
-The
-.Fl E
-flag extends syntax rule for Dis language to allow any characters to load.
-.Pp
-The
-.Fl v
-flag enables verbose mode which outputs debugging information to
-standard error.
+The options are as follows:
+.Bl -tag -width Ds
+.It Fl E
+Allow any non-command characters to load.
+.It Fl v
+Enable verbose mode; print debugging information to standard error.
+.It Fl k Ar STEPS
+Run the Dis program for given
+.Ar STEPS .
+In this mode exit status indicates whether program has halt.
+.El
 .Pp
 I have implemented signal handling for
 .Dv SIGHUP ,
@@ -50,6 +54,13 @@ catches one of those signals it cleans up dynamically allocated
 memory.
 .Sh EXIT STATUS
 .Ex -std
+However when
+.Fl k
+is given the
+.Nm
+utility exits\~0 on success and program halted,
+and\~>0 if success but program still running, or an error error
+occurs.
 .Sh REPOSITORY
 .Lk https://github.com/Tpaefawzen/dis.optimized \
  "Available on Tpaefawzen/dis.optimized on GitHub"
