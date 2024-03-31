@@ -141,6 +141,7 @@ trap_1:
 		result = ! halt_status;
 	} else {
 		(void)dis_exec_forever(&machine);
+		result = EXIT_SUCCESS;
 	}
 
 	/**
