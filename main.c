@@ -14,24 +14,22 @@
 #include "dis_errno.h"
 
 void usage(const char[]);
+void parse_args_(int argc, char *argv[]);
+
+const char *myname;
+
+_Bool flag_E = 0;
+_Bool flag_v = 0;
+_Bool flag_k = 0; unsigned long long steps2run;
+uint8_t flag_Optlevel = 3;
 
 void usage(const char myname[]) {
-	fprintf(stderr, "Usage: %s [-Ev] [-O LEVEL] FILE\n", myname);
+	fprintf(stderr, "Usage: %s [-Ev] [-k STEPS] [-O LEVEL] FILE\n", myname);
 	exit(EXIT_FAILURE);
 }
 
-int main(int argc, char *argv[]) {
-	const char* const myname = argv[0];
-	int result = EXIT_FAILURE;
-
-	_Bool flag_E = 0;
-	_Bool flag_v = 0;
-	uint8_t flag_Optlevel = 3;
-
-	/**
-	 * Usage.
-	 */
-	for ( int c; ( c = getopt(argc, argv, "EvO:")) != -1; ) {
+void parse_args_(int argc, char *argv[]) {
+	for ( int c; ( c = getopt(argc, argv, "Evk:O:")) != -1; ) {
 		switch ( c ) {
 			unsigned long maybe_optlevel_;
 			char *endptr_;
@@ -42,6 +40,22 @@ int main(int argc, char *argv[]) {
 
 		case 'v':
 			flag_v = 1;
+			break;
+
+		case 'k':
+			flag_k = 1;
+			steps2run = strtoull(optarg, &endptr_, 10);
+			if ( errno ) {
+				perror("-k");
+				fprintf(stderr, "-k %s: Treated as %llu\n",
+						optarg, steps2run);
+				errno = 0;
+			}
+			if ( endptr_ == optarg ) {
+				fprintf(stderr, "-k %s: not a number\n",
+						optarg);
+				break;
+			}
 			break;
 
 		case 'O':
@@ -61,12 +75,21 @@ int main(int argc, char *argv[]) {
 				break;
 			}
 			flag_Optlevel = maybe_optlevel_;
+			break;
 
 		default:
 		case '?':
 			usage(myname);
 		}
 	}
+
+}
+
+int main(int argc, char *argv[]) {
+	myname = argv[0];
+	int result = EXIT_FAILURE;
+
+	parse_args_(argc, argv);
 
 	/**
 	 * Expect if any argument given.
@@ -113,9 +136,18 @@ trap_1:
 	/**
 	 * Now we can execute the compiled program.
 	 */
-	(void)dis_exec_forever(&machine);
+	if ( flag_k ) {
+		enum dis_halt_status halt_status = dis_exec(&machine, (size_t)steps2run);
+		result = ! halt_status;
+	} else {
+		(void)dis_exec_forever(&machine);
+	}
 
-	result = machine.caught_signal_number;
-	if ( result ) result += 128;
+	/**
+	 * Finally
+	 */
+	int signal_no = machine.caught_signal_number;
+	if ( signal_no ) result = signal_no + 128;
+
 	goto trap_1;
 }

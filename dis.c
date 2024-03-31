@@ -69,6 +69,9 @@ int dis_init(struct dis_t* machine) {
 
 	machine -> flags = 0;
 
+	machine -> fout = stdout;
+	machine -> fin = stdin;
+
 	return errno;
 }
 
@@ -203,14 +206,16 @@ enum dis_halt_status dis_exec(struct dis_t* machine, size_t steps) {
 	for ( ; ; ) {
 		if ( ( machine->caught_signal_number = has_caught_signal_ ) ||
 				! steps-- ||
-				dis_step(machine) ) return machine->status;
+				dis_step(machine) != DIS_RUNNING )
+			return machine->status;
 	}
 }
 
 enum dis_halt_status dis_exec_forever(struct dis_t* machine) {
 	for ( ; ; ) {
 		if ( ( machine->caught_signal_number = has_caught_signal_ ) ||
-				dis_step(machine) ) return machine->status;
+				dis_step(machine) != DIS_RUNNING )
+			return machine->status;
 	}
 }
 
