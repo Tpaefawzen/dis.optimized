@@ -21,9 +21,10 @@ static void handler(int signum) {
 }
 
 /* Not even macro. */
+/* XXX implement as optimization-spec-something */
 inline _Bool dis_is_infinite_loop(const struct dis_t *machine) {
 	return machine->status == DIS_RUNNING &&
-		machine->end_nonnop == 0;
+		machine->next_nonnop[machine->reg.c] && machine->reg.c;
 }
 
 inline dis_int_t DIS_T_INT_MAX(const struct dis_t *const machine) {
@@ -33,6 +34,7 @@ inline dis_int_t DIS_T_INT_MAX(const struct dis_t *const machine) {
 /* Methods. */
 int dis_init(struct dis_t* machine) {
 	machine -> mem = NULL;
+	machine -> next_nonnop = NULL;
 
 	machine -> base = DIS_BASE;
 	machine -> digits = DIS_DIGITS;
@@ -43,6 +45,11 @@ int dis_init(struct dis_t* machine) {
 
 	machine -> mem =
 		(dis_int_t*)calloc(DIS_T_INT_MAX(machine), sizeof(dis_int_t));
+	if ( errno ) return errno;
+
+	/* XXX implement as optimization-spec-something */
+	machine -> next_nonnop =
+		(dis_addr_t*)calloc(DIS_T_INT_MAX(machine), sizeof(dis_addr_t));
 	if ( errno ) return errno;
 
 	int sigs_[] = { SIGHUP, SIGINT, SIGQUIT, SIGPIPE, SIGALRM, SIGTERM, 0 };
@@ -60,7 +67,6 @@ int dis_init(struct dis_t* machine) {
 	}
 
 	machine -> source_len = 0;
-	machine -> end_nonnop = 0;
 
 	machine -> reg.a = 0;
 	machine -> reg.c = 0;
@@ -78,7 +84,11 @@ int dis_init(struct dis_t* machine) {
 void dis_free(struct dis_t *machine) {
 	if ( DIS_T_INT_MAX(machine) && machine->mem )
 		free(machine->mem);
+/* XXX implement as optimization-spec-something */
+	if ( machine->next_nonnop )
+		free(machine->next_nonnop);
 	machine->mem = NULL;
+	machine->next_nonnop = NULL;
 	machine->mem_capacity = 0;
 }
 
@@ -89,7 +99,7 @@ _Bool accept_any_char_for_source = 0;
 
 enum dis_syntax_error parse_non_comment_(FILE*, struct dis_t*);
 enum dis_syntax_error parse_comment_(FILE*, struct dis_t*);
-inline void extend_nonnop_at_compilation_(struct dis_t*);
+inline void update_next_nonnop_table_(struct dis_t*, dis_addr_t);
 
 enum dis_syntax_error dis_compile(
 		const char*const filename, struct dis_t *machine,
@@ -149,21 +159,25 @@ enum dis_syntax_error parse_non_comment_(FILE *f, struct dis_t *machine) {
 		}
 
 		machine->mem[machine->source_len++] = (dis_int_t)c;
-		extend_nonnop_at_compilation_(machine);
+		if ( c != '_' )
+			update_next_nonnop_table_(machine,
+					machine->source_len - 1);
 		return parse_non_comment_(f, machine);
 	}
 }
 
-inline void extend_nonnop_at_compilation_(struct dis_t *machine) {
-	switch ( machine->mem[machine->source_len-1] ) {
-	case '_':
-		return;
+/* XXX implement as optimization-spec-something */
+inline void update_next_nonnop_table_(struct dis_t *machine, dis_addr_t next) {
+	for (
+			dis_addr_t i =
+			(next + DIS_T_INT_MAX(machine) - 1)
+			% DIS_T_INT_MAX(machine);
+			
+			machine->next_nonnop[i] != next;
 
-	default:
-	case '!': case '*': case '>': case '^':
-	case '{': case '|': case '}':
-		machine->end_nonnop = machine->source_len;
-	}
+			i = (i + DIS_T_INT_MAX(machine) - 1)
+			% DIS_T_INT_MAX(machine))
+		machine->next_nonnop[i] = next;
 }
 
 enum dis_syntax_error parse_comment_(FILE *f, struct dis_t *machine) {
@@ -192,9 +206,9 @@ void increment_lineno_or_colno_(const int c) {
 		return;
 
 	case '\n':
-		dis_compilation_colno = 1;
+		dis_compilation_colno = 0;
 		dis_compilation_lineno++;
-		return;
+		/* FALLTHROUGH */
 
 	default:
 		dis_compilation_colno++;
@@ -232,7 +246,8 @@ enum dis_halt_status dis_step(struct dis_t* machine) {
 		return machine->status;
 	}
 
-	/* Step 2. Increment c and d until mem[c] is a non-nop if any. */
+	/* Step 2. */
+	/* XXX can this be implemented as optim-spec? */
 try_to_fetch_command:
 	if ( ( machine->caught_signal_number = has_caught_signal_ ) )
 		return machine->status;
@@ -240,39 +255,28 @@ try_to_fetch_command:
 	if ( dis_is_infinite_loop(machine) )
 		return machine->status;
 
-	if ( machine->reg.c >= machine->end_nonnop ) {
-		/* Since command can be found at <end_nonnop, why not just
-		 * increment c and d until c is 0? */
-		DPRINTF(machine, "c %u >= end_nonnop %u\n",
-				machine->reg.c, machine->end_nonnop);
-		machine->reg.d = (uintptr_t)(
-				machine->reg.d + machine->reg.c
-				+ DIS_T_INT_MAX(machine) )
-			% DIS_T_INT_MAX(machine);
-		machine->reg.c = 0;
+	cmd_f *cmd = fetch_cmd_(machine->reg.c);
+	if ( ! cmd ) {
+		/* Then I guess next cmd_c is at somewhere */
+		dis_addr_t next = machine->next_nonnop[machine->reg.c];
+
+		update_next_nonnop_table_(machine, next);
+		
+		/* Finally update C and D */
+		dis_addr_t diff2next = 
+			( machine->reg.c <= next ) ?
+			next - machine->reg.c :
+			DIS_T_INT_MAX(machine) - machine->reg.c + next;
+
+		machine->reg.c = dis_addr_add(
+				machine->base, machine->digits,
+				machine->reg.c, diff2next);
+		machine->reg.d = dis_addr_add(
+				machine->base, machine->digits,
+				machine->reg.d, diff2next);
 		goto try_to_fetch_command;
 	}
 
-	/* Are there any command in [c, end_nonnop)? */
-	cmd_f *cmd = NULL;
-	for ( ;
-			machine->reg.c < machine->end_nonnop;
-	    ) {
-		if ( ( machine->caught_signal_number = has_caught_signal_ ) )
-			return machine->status;
-		if ( ( cmd = fetch_cmd_(machine->mem[machine->reg.c]) ) )
-			goto found_cmd;
-		machine->reg.c = ( machine->reg.c + 1 ) % DIS_T_INT_MAX(machine);
-		machine->reg.d = ( machine->reg.d + 1 ) % DIS_T_INT_MAX(machine);
-	}
-
-	/* Command not found, so it can be found at [0, c). */
-	assert( machine->reg.c >= machine->end_nonnop );
-	machine->end_nonnop = machine->reg.c;
-	DPRINTF(machine, "end_nonnop: %u\n", machine->end_nonnop);
-	goto try_to_fetch_command;
-
-found_cmd:
 	DPRINTF(machine, "a %5d c %5d d %5d mem[c] %5d mem[d] %5d\n",
 			machine->reg.a,
 			machine->reg.c,
@@ -298,8 +302,20 @@ found_cmd:
 			machine->mem[machine->reg.d]);
 
 	/* Step 4. Increment c and d for next step. */
-	machine->reg.c = ( machine->reg.c + 1 ) % DIS_T_INT_MAX(machine);
-	machine->reg.d = ( machine->reg.d + 1 ) % DIS_T_INT_MAX(machine);
+	/* XXX this also should be optimize-spec */
+	dis_addr_t next = machine->next_nonnop[machine->reg.c];
+
+	dis_addr_t diff2next = 
+		( machine->reg.c <= next ) ?
+		next - machine->reg.c :
+		DIS_T_INT_MAX(machine) - machine->reg.c + next;
+
+	machine->reg.c = dis_addr_add(
+			machine->base, machine->digits,
+			machine->reg.c, diff2next);
+	machine->reg.d = dis_addr_add(
+			machine->base, machine->digits,
+			machine->reg.d, diff2next);
 
 	return machine->status;
 }
@@ -350,10 +366,11 @@ enum dis_halt_status rot_or_opr_(struct dis_t *machine) {
 				machine->reg.a,
 				machine->mem[machine->reg.d]));
 
-	/* Extend or shrink end_nonnop */
-	if ( machine->reg.d >= machine->end_nonnop
-			&& fetch_cmd_(x) )
-		machine->end_nonnop = machine->reg.d + 1;
+	/* XXX this should be optimization-spec */
+	update_next_nonnop_table_(machine,
+			fetch_cmd_(x) ?
+			machine->reg.d :
+			machine->reg.d + 1);
 
 	return machine->status;
 }
