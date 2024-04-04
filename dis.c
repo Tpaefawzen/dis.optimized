@@ -5,6 +5,7 @@
 #include <errno.h>
 #include <math.h>
 #include <signal.h>
+#include <stdarg.h>
 #include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -20,6 +21,15 @@ static void handler(int signum) {
 	has_caught_signal_ = signum;
 }
 
+void DPRINTF(struct dis_t *machine, const char *restrict format, ...) {
+	if ( machine->flags & DIS_FLAG_VERBOSE ) {
+		va_list ap;
+		va_start(ap, format);
+		vfprintf(stderr, format, ap);
+		va_end(ap);
+	}
+}
+
 /* Not even macro. */
 /* XXX implement as optimization-spec-something */
 inline _Bool dis_is_infinite_loop(const struct dis_t *machine) {
@@ -27,7 +37,7 @@ inline _Bool dis_is_infinite_loop(const struct dis_t *machine) {
 		machine->next_nonnop[machine->reg.c] && machine->reg.c;
 }
 
-inline dis_int_t DIS_T_INT_MAX(const struct dis_t *const machine) {
+inline dis_int_t DIS_T_INT_END(const struct dis_t *const machine) {
 	return machine->mem_capacity;
 }
 
@@ -44,12 +54,12 @@ int dis_init(struct dis_t* machine) {
 	if ( errno ) return errno;
 
 	machine -> mem =
-		(dis_int_t*)calloc(DIS_T_INT_MAX(machine), sizeof(dis_int_t));
+		(dis_int_t*)calloc(DIS_T_INT_END(machine), sizeof(dis_int_t));
 	if ( errno ) return errno;
 
 	/* XXX implement as optimization-spec-something */
 	machine -> next_nonnop =
-		(dis_addr_t*)calloc(DIS_T_INT_MAX(machine), sizeof(dis_addr_t));
+		(dis_addr_t*)calloc(DIS_T_INT_END(machine), sizeof(dis_addr_t));
 	if ( errno ) return errno;
 
 	int sigs_[] = { SIGHUP, SIGINT, SIGQUIT, SIGPIPE, SIGALRM, SIGTERM, 0 };
@@ -82,7 +92,7 @@ int dis_init(struct dis_t* machine) {
 }
 
 void dis_free(struct dis_t *machine) {
-	if ( DIS_T_INT_MAX(machine) && machine->mem )
+	if ( DIS_T_INT_END(machine) && machine->mem )
 		free(machine->mem);
 /* XXX implement as optimization-spec-something */
 	if ( machine->next_nonnop )
@@ -94,11 +104,11 @@ void dis_free(struct dis_t *machine) {
 
 size_t dis_compilation_lineno;
 size_t dis_compilation_colno;
-void increment_lineno_or_colno_(const int);
+inline void increment_lineno_or_colno_(const int);
 _Bool accept_any_char_for_source = 0;
 
 enum dis_syntax_error parse_non_comment_(FILE*, struct dis_t*);
-enum dis_syntax_error parse_comment_(FILE*, struct dis_t*);
+inline enum dis_syntax_error parse_comment_(FILE*, struct dis_t*);
 inline void update_next_nonnop_table_(struct dis_t*, dis_addr_t);
 
 enum dis_syntax_error dis_compile(
@@ -108,8 +118,10 @@ enum dis_syntax_error dis_compile(
 	dis_compilation_colno = 0;
 	accept_any_char_for_source = accept_any_char;
 
-	dis_init(machine);
-	if ( errno ) return DIS_SYNTAX_MEMORY;
+	if ( ! machine ) {
+		dis_init(machine);
+		if ( errno ) return DIS_SYNTAX_MEMORY;
+	}
 
 	FILE *f = fopen(filename, "r");
 	if ( !f || errno ) {
@@ -154,7 +166,7 @@ enum dis_syntax_error parse_non_comment_(FILE *f, struct dis_t *machine) {
 
 	case '!': case '*': case '>': case '^':
 	case '_': case '{': case '|': case '}':
-		if ( machine->source_len >= DIS_T_INT_MAX(machine) ) {
+		if ( machine->source_len >= DIS_T_INT_END(machine) ) {
 			return DIS_SYNTAX_TOO_LONG;
 		}
 
@@ -170,17 +182,21 @@ enum dis_syntax_error parse_non_comment_(FILE *f, struct dis_t *machine) {
 inline void update_next_nonnop_table_(struct dis_t *machine, dis_addr_t next) {
 	for (
 			dis_addr_t i =
-			(next + DIS_T_INT_MAX(machine) - 1)
-			% DIS_T_INT_MAX(machine);
+			(uintptr_t)(next + DIS_T_INT_END(machine) - 1)
+			% DIS_T_INT_END(machine);
 			
-			machine->next_nonnop[i] != next;
+			machine->next_nonnop[i] != next &&
+			i != next;
 
-			i = (i + DIS_T_INT_MAX(machine) - 1)
-			% DIS_T_INT_MAX(machine))
+			i = (uintptr_t)(i + DIS_T_INT_END(machine) - 1)
+			% DIS_T_INT_END(machine)) {
+		assert( 0 <= i && i < DIS_T_INT_END(machine) );
+		DPRINTF(machine, "update next_nonnop[%d] = %d\n", (int)i, (int)next);
 		machine->next_nonnop[i] = next;
+	}
 }
 
-enum dis_syntax_error parse_comment_(FILE *f, struct dis_t *machine) {
+inline enum dis_syntax_error parse_comment_(FILE *f, struct dis_t *machine) {
 	if ( ( machine -> caught_signal_number = has_caught_signal_ ) )
 		return DIS_SYNTAX_MAX;
 
@@ -200,7 +216,7 @@ enum dis_syntax_error parse_comment_(FILE *f, struct dis_t *machine) {
 	}
 }
 
-void increment_lineno_or_colno_(const int c) {
+inline void increment_lineno_or_colno_(const int c) {
 	switch ( c ) {
 	case EOF:
 		return;
@@ -266,7 +282,7 @@ try_to_fetch_command:
 		dis_addr_t diff2next = 
 			( machine->reg.c <= next ) ?
 			next - machine->reg.c :
-			DIS_T_INT_MAX(machine) - machine->reg.c + next;
+			DIS_T_INT_END(machine) - machine->reg.c + next;
 
 		machine->reg.c = dis_addr_add(
 				machine->base, machine->digits,
@@ -308,7 +324,7 @@ try_to_fetch_command:
 	dis_addr_t diff2next = 
 		( machine->reg.c <= next ) ?
 		next - machine->reg.c :
-		DIS_T_INT_MAX(machine) - machine->reg.c + next;
+		DIS_T_INT_END(machine) - machine->reg.c + next;
 
 	machine->reg.c = dis_addr_add(
 			machine->base, machine->digits,
@@ -377,7 +393,7 @@ enum dis_halt_status rot_or_opr_(struct dis_t *machine) {
 
 enum dis_halt_status out_(struct dis_t *machine) {
 	DPRINTF(machine, "Reached to {\n");
-	if ( machine->reg.a == DIS_T_INT_MAX(machine) ) {
+	if ( machine->reg.a == DIS_T_INT_END(machine) ) {
 		return machine->status = DIS_HALT_OUTPUT_EOF;
 	}
 	fputc(machine->reg.a, machine->fout);
@@ -389,7 +405,7 @@ enum dis_halt_status in_(struct dis_t *machine) {
 	int x = fgetc(machine->fin);
 	switch ( x ) {
 	case EOF:
-		machine->reg.a = DIS_T_INT_MAX(machine);
+		machine->reg.a = DIS_T_INT_END(machine);
 		break;
 
 	default:

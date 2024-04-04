@@ -104,6 +104,9 @@ int main(int argc, char *argv[]) {
 	 * Parse a Dis program.
 	 */
 	struct dis_t machine;
+	dis_init(&machine);
+	if ( flag_v ) machine.flags |= DIS_FLAG_VERBOSE;
+
 	const enum dis_syntax_error syntax_errno =
 		dis_compile(filename, &machine, flag_E);
 
@@ -127,10 +130,6 @@ trap_1:
 				get_dis_syntax_error_msg(syntax_errno));
 
 		goto trap_1;
-	}
-
-	if ( flag_v ) {
-		machine.flags |= DIS_FLAG_VERBOSE;
 	}
 
 	/**
