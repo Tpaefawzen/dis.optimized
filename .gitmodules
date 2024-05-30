@@ -1,0 +1,3 @@
+[submodule "prog_examples"]
+	path = prog_examples
+	url = git@github.com:Tpaefawzen/dis.example-programs.git
