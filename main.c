@@ -44,6 +44,7 @@ void parse_args_(int argc, char *argv[]) {
 
 		case 'k':
 			flag_k = 1;
+			errno = 0;
 			steps2run = strtoull(optarg, &endptr_, 10);
 			if ( errno ) {
 				perror("-k");

@@ -37,10 +37,12 @@ int dis_init(struct dis_t* machine) {
 	machine -> base = DIS_BASE;
 	machine -> digits = DIS_DIGITS;
 
+	errno = 0;
 	machine -> mem_capacity =
 		DIS_INT_END(machine->base, machine->digits);
 	if ( errno ) return errno;
 
+	errno = 0;
 	machine -> mem =
 		(dis_int_t*)calloc(DIS_T_INT_MAX(machine), sizeof(dis_int_t));
 	if ( errno ) return errno;
@@ -50,6 +52,7 @@ int dis_init(struct dis_t* machine) {
 	for ( int *i = sigs_;
 			*i;
 			i++ ) {
+		errno = 0;
 		if ( signal(*i, handler) == SIG_ERR ) {
 			fprintf(stderr, "dis_init(): "
 					"Failed to signal(%s, handler): "
@@ -98,6 +101,7 @@ enum dis_syntax_error dis_compile(
 	dis_compilation_colno = 0;
 	accept_any_char_for_source = accept_any_char;
 
+	errno = 0;
 	dis_init(machine);
 	if ( errno ) return DIS_SYNTAX_MEMORY;
 
